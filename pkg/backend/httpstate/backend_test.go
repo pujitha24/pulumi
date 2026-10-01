@@ -26,6 +26,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1948,4 +1950,48 @@ func TestGetSnapshotStackOutputs(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, wantOutputs, outputs)
 	})
+}
+
+func TestGetDeploymentUpdateWaitsForSlowUpdate(t *testing.T) {
+	t.Parallel()
+
+	var polls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		switch {
+		case strings.HasSuffix(req.URL.Path, "/updates"):
+			if polls.Add(1) < 25 {
+				_, _ = rw.Write([]byte(`[]`))
+				return
+			}
+			_, _ = rw.Write([]byte(`[{"updateID":"update-1","version":7}]`))
+		default:
+			_, _ = rw.Write([]byte(`{"id":"d","status":"running"}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	b := &cloudBackend{client: client.NewClient(server.URL, "test-token", false, diagtest.LogSink(t))}
+	stackID := client.StackIdentifier{Owner: "o", Project: "p", Stack: tokens.MustParseStackName("s")}
+	id, version, err := b.getDeploymentUpdate(t.Context(), stackID, "d", time.Millisecond)
+	require.NoError(t, err)
+	assert.Equal(t, "update-1", id)
+	assert.Equal(t, 7, version)
+}
+
+func TestGetDeploymentUpdateFinishedWithoutUpdate(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if strings.HasSuffix(req.URL.Path, "/updates") {
+			_, _ = rw.Write([]byte(`[]`))
+			return
+		}
+		_, _ = rw.Write([]byte(`{"id":"d","status":"failed"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	b := &cloudBackend{client: client.NewClient(server.URL, "test-token", false, diagtest.LogSink(t))}
+	stackID := client.StackIdentifier{Owner: "o", Project: "p", Stack: tokens.MustParseStackName("s")}
+	_, _, err := b.getDeploymentUpdate(t.Context(), stackID, "d", time.Millisecond)
+	require.ErrorContains(t, err, "could not find update associated with deployment d")
 }

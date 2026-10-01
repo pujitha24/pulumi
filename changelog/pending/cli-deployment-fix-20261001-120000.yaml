@@ -1,0 +1,4 @@
+component: cli/deployment
+kind: fix
+body: Keep waiting for the update of a running deployment when streaming deployment logs
+time: 2026-10-01T12:00:00.000000000Z

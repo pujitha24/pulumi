@@ -2877,25 +2877,41 @@ func (b *cloudBackend) RunDeployment(ctx context.Context, stackRef backend.Stack
 	return nil
 }
 
+// getDeploymentUpdate waits for the update associated with a deployment to be created. The executor can
+// take a while to start the update, so keep polling for as long as the deployment has not finished.
+func (b *cloudBackend) getDeploymentUpdate(ctx context.Context, stackID client.StackIdentifier,
+	deploymentID string, interval time.Duration,
+) (string, int, error) {
+	for {
+		updates, err := b.client.GetDeploymentUpdates(ctx, stackID, deploymentID)
+		if err != nil {
+			return "", 0, err
+		}
+		if len(updates) > 0 {
+			return updates[0].UpdateID, updates[0].Version, nil
+		}
+
+		deployment, err := b.client.GetDeployment(ctx, stackID, deploymentID)
+		if err != nil {
+			return "", 0, err
+		}
+		switch deployment.Status {
+		case "failed", "succeeded", "skipped":
+			return "", 0, fmt.Errorf("could not find update associated with deployment %s", deploymentID)
+		}
+
+		select {
+		case <-time.After(interval):
+		case <-ctx.Done():
+			return "", 0, ctx.Err()
+		}
+	}
+}
+
 func (b *cloudBackend) showDeploymentEvents(ctx context.Context, stackID client.StackIdentifier,
 	kind apitype.UpdateKind, deploymentID string, opts display.Options,
 ) error {
-	getUpdateID := func() (string, int, error) {
-		for range 10 {
-			updates, err := b.client.GetDeploymentUpdates(ctx, stackID, deploymentID)
-			if err != nil {
-				return "", 0, err
-			}
-			if len(updates) > 0 {
-				return updates[0].UpdateID, updates[0].Version, nil
-			}
-
-			time.Sleep(500 * time.Millisecond)
-		}
-		return "", 0, fmt.Errorf("could not find update associated with deployment %s", deploymentID)
-	}
-
-	updateID, version, err := getUpdateID()
+	updateID, version, err := b.getDeploymentUpdate(ctx, stackID, deploymentID, 500*time.Millisecond)
 	if err != nil {
 		return err
 	}
