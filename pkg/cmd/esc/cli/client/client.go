@@ -33,6 +33,8 @@ import (
 	"time"
 
 	"github.com/google/go-querystring/query"
+	"github.com/pulumi/pulumi/pkg/v3/backend/backenderr"
+	httpstateclient "github.com/pulumi/pulumi/pkg/v3/backend/httpstate/client"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/esc"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/version"
 
@@ -1833,7 +1835,21 @@ func (pc *client) httpCall(
 		if resp.StatusCode >= 500 {
 			reqID = resp.Header.Get("X-Pulumi-Request-ID")
 		}
-		return nil, decodeError(respBody, resp.StatusCode, opts, reqID)
+		err = decodeError(respBody, resp.StatusCode, opts, reqID)
+		if resp.StatusCode == 401 {
+			if errResp, ok := errors.AsType[*apitype.ErrorResponse](err); ok {
+				for _, e := range errResp.Errors {
+					if (e.ErrorType == "saml_reauth_required" || e.ErrorType == "saml_login_required") &&
+						e.Attribute != nil {
+						return nil, backenderr.LoginRequiredError{
+							ReauthURL: httpstateclient.CloudConsoleURL(
+								cloudAPI, "signin", "sso", *e.Attribute, "reauth"),
+						}
+					}
+				}
+			}
+		}
+		return nil, err
 	}
 
 	return resp, nil

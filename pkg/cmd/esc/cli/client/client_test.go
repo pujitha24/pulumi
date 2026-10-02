@@ -17,13 +17,16 @@ package client
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/pulumi/pulumi/pkg/v3/backend/backenderr"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/apitype"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/esc"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/esc/schema"
@@ -1947,5 +1950,45 @@ func TestGetDefaultOrg(t *testing.T) {
 		// We should gracefully swallow the 404.
 		require.NoError(t, err)
 		assert.Empty(t, orgName)
+	})
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestSAMLReauthRequired(t *testing.T) {
+	t.Parallel()
+
+	newClientWithResponse := func(body string) *client {
+		httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusUnauthorized,
+				Status:     "401 Unauthorized",
+				Header:     http.Header{},
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    r,
+			}, nil
+		})}
+		return newClient("test-user-agent", "https://api.pulumi.com", "test-token", httpClient)
+	}
+
+	t.Run("saml_reauth_required", func(t *testing.T) {
+		t.Parallel()
+		client := newClientWithResponse(`{"code":401,"message":"SAML SSO reauthorization is required.",` +
+			`"errors":[{"errorType":"saml_reauth_required","attribute":"my-org"}]}`)
+		_, _, err := client.ListEnvironments(t.Context(), "")
+		var loginErr backenderr.LoginRequiredError
+		require.True(t, errors.As(err, &loginErr), "unexpected error: %v", err)
+		assert.Equal(t, "https://app.pulumi.com/signin/sso/my-org/reauth", loginErr.ReauthURL)
+	})
+
+	t.Run("plain 401", func(t *testing.T) {
+		t.Parallel()
+		client := newClientWithResponse(`{"code":401,"message":"Unauthorized"}`)
+		_, _, err := client.ListEnvironments(t.Context(), "")
+		var errResp *apitype.ErrorResponse
+		require.True(t, errors.As(err, &errResp), "unexpected error: %v", err)
+		assert.Equal(t, 401, errResp.Code)
 	})
 }

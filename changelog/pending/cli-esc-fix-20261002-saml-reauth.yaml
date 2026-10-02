@@ -1,0 +1,4 @@
+component: cli/esc
+kind: fix
+body: Show the SSO login URL when ESC commands fail because SAML SSO reauthorization is required
+time: 2026-10-02T12:00:00.000000000Z
