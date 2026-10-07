@@ -295,11 +295,24 @@ func cleanupLegacyTemplateDir(templateKind TemplateKind) error {
 		return fmt.Errorf("getting template repo remotes: %w", err)
 	}
 	// If the repo exists and it doesn't have exactly one remote that matches our URL, wipe the templates directory.
-	if len(remotes) != 1 || remotes[0] == nil || !strings.Contains(remotes[0].String(), url) {
+	if len(remotes) != 1 || remotes[0] == nil || !remoteHasURL(remotes[0], url) {
 		return os.RemoveAll(templateDir)
 	}
 
 	return nil
+}
+
+// remoteHasURL reports whether one of the remote's URLs is url. A trailing slash or ".git" is ignored.
+func remoteHasURL(remote *git.Remote, url string) bool {
+	normalize := func(s string) string {
+		return strings.TrimSuffix(strings.TrimSuffix(s, "/"), ".git")
+	}
+	for _, u := range remote.Config().URLs {
+		if normalize(u) == normalize(url) {
+			return true
+		}
+	}
+	return false
 }
 
 // IsGitRepoTemplateURL returns true if templateNamePathOrURL is a git repository URL (https:// or ssh://).

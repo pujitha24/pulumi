@@ -706,3 +706,37 @@ func TestCopyTemplateFiles(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func TestCleanupLegacyTemplateDirRemoteSubstring(t *testing.T) {
+	tests := []struct {
+		name      string
+		cachedURL string
+		wantURL   string
+		wantKept  bool
+	}{
+		{"same", "https://example.com/org/templates", "https://example.com/org/templates", true},
+		{"git suffix", "https://example.com/org/templates.git", "https://example.com/org/templates", true},
+		{"wanted is prefix of cached", "https://example.com/org/templates-internal", "https://example.com/org/templates", false},
+		{"unrelated", "https://example.com/other/repo", "https://example.com/org/templates", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "templates")
+			repo, err := git.PlainInit(dir, false)
+			require.NoError(t, err)
+			_, err = repo.CreateRemote(&config.RemoteConfig{Name: "origin", URLs: []string{tt.cachedURL}})
+			require.NoError(t, err)
+
+			t.Setenv(env.TemplatePath.Var().Name(), dir)
+			t.Setenv(env.TemplateGitRepository.Var().Name(), tt.wantURL)
+
+			require.NoError(t, cleanupLegacyTemplateDir(TemplateKindPulumiProject))
+			_, err = os.Stat(dir)
+			if tt.wantKept {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, os.ErrNotExist)
+			}
+		})
+	}
+}
