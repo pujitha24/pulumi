@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/config"
+	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/go-git/go-git/v6/plumbing/object"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/env"
 	"github.com/stretchr/testify/assert"
@@ -705,4 +706,48 @@ func TestCopyTemplateFiles(t *testing.T) {
 		err = CopyTemplateFiles(projectDir, copyDestDir, true, "testProjectName", "testProjectDescription")
 		require.NoError(t, err)
 	})
+}
+
+func TestRetrievePulumiTemplatesBranchChange(t *testing.T) {
+	source := t.TempDir()
+	repo, err := git.PlainInit(source, false)
+	require.NoError(t, err)
+	cfg, err := repo.Config()
+	require.NoError(t, err)
+	cfg.Commit.GpgSign = config.OptBoolFalse
+	require.NoError(t, repo.SetConfig(cfg))
+	require.NoError(t, os.WriteFile(filepath.Join(source, "Pulumi.yaml"), []byte("name: test\n"), 0o600))
+	worktree, err := repo.Worktree()
+	require.NoError(t, err)
+	_, err = worktree.Add("Pulumi.yaml")
+	require.NoError(t, err)
+	commitOpts := &git.CommitOptions{
+		Author: &object.Signature{Name: "test", Email: "test@example.com", When: time.Now()},
+	}
+	_, err = worktree.Commit("initial", commitOpts)
+	require.NoError(t, err)
+	head, err := repo.Head()
+	require.NoError(t, err)
+
+	t.Setenv(env.TemplateGitRepository.Var().Name(), source)
+	t.Setenv(env.TemplateBranch.Var().Name(), head.Name().Short())
+	t.Setenv(env.TemplatePath.Var().Name(), filepath.Join(t.TempDir(), "templates"))
+
+	_, err = retrievePulumiTemplates(t.Context(), false, TemplateKindPulumiProject)
+	require.NoError(t, err)
+
+	// Create a new branch with a new commit, then ask for it.
+	require.NoError(t, worktree.Checkout(&git.CheckoutOptions{
+		Branch: plumbing.NewBranchReferenceName("feature"),
+		Create: true,
+	}))
+	_, err = worktree.Commit("feature", &git.CommitOptions{
+		Author:            commitOpts.Author,
+		AllowEmptyCommits: true,
+	})
+	require.NoError(t, err)
+
+	t.Setenv(env.TemplateBranch.Var().Name(), "feature")
+	_, err = retrievePulumiTemplates(t.Context(), false, TemplateKindPulumiProject)
+	require.NoError(t, err)
 }
