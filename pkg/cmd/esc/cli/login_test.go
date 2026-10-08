@@ -276,6 +276,17 @@ func TestFilestateBackend(t *testing.T) {
 	assert.ErrorContains(t, err, "log into the Pulumi Cloud backend")
 }
 
+func TestFilestateBackendWithoutAccountDoesNotLogin(t *testing.T) {
+	t.Parallel()
+	esc := &escCommand{
+		ws:    mockWorkspace(pulumi_workspace.Credentials{Current: "file:///tmp/state"}),
+		login: noCredsLoginManager(0),
+	}
+	err := esc.getCachedClient(t.Context())
+	assert.ErrorContains(t, err, "does not support Pulumi ESC")
+	assert.NotContains(t, err.Error(), "could not determine current cloud")
+}
+
 func TestEnvVarOverridesAccounts(t *testing.T) {
 	creds := pulumi_workspace.Credentials{
 		Current: "https://api.pulumi.com",

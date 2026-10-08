@@ -66,6 +66,11 @@ func (esc *escCommand) getCachedClient(ctx context.Context) error {
 	}
 	backendURL := httpstate.ValueOrDefaultURL(esc.ws, projectURL)
 
+	// Fail before attempting to log in or sign up against a backend that can't serve ESC.
+	if err := esc.checkBackendURL(backendURL); err != nil {
+		return err
+	}
+
 	// Read the stored account for the backend from Pulumi's shared credentials.
 	var acct *Account
 	creds, err := esc.ws.GetStoredCredentials()
@@ -102,9 +107,6 @@ func (esc *escCommand) getCachedClient(ctx context.Context) error {
 	}
 
 	acct.BackendURL = backendURL
-	if err := esc.checkBackendURL(acct.BackendURL); err != nil {
-		return err
-	}
 
 	ok, err := esc.getCachedCredentials(ctx, acct.BackendURL, acct.Insecure)
 	if err != nil {
