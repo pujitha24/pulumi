@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"sync"
 
 	"github.com/pulumi/pulumi/pkg/v3/resource/plugin"
@@ -68,7 +69,9 @@ func InstallDependencies(
 	wg.Wait()
 	close(errorChan)
 	for err := range errorChan {
-		if err != nil {
+		// When the installation fails, the language runtime closes the output pipes with the same error that it
+		// reports on the done channel, so skip errors we've already collected to avoid reporting it three times.
+		if err != nil && !slices.ContainsFunc(errs, func(seen error) bool { return errors.Is(err, seen) }) {
 			errs = append(errs, err)
 		}
 	}

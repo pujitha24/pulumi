@@ -1,0 +1,3 @@
+component: cli
+kind: bugfix
+body: Print the error from `pulumi install` once instead of three times when dependency installation fails
