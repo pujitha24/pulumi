@@ -51,23 +51,26 @@ type envCommand struct {
 	envNameFlag string
 }
 
+var errMissingEnvName = errors.New(
+	"no environment name specified; expected [<org-name>/][<project-name>/]<environment-name>")
+
 func newEnvCmd(esc *escCommand) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "env",
 		Short: "Manage environments",
-		Long: "Manage environments\n" +
-			"\n" +
-			"An environment is a named collection of possibly-secret, possibly-dynamic data.\n" +
-			"Each environment has a definition and may be opened in order to access its contents.\n" +
-			"Opening an environment may involve generating new dynamic data.\n" +
-			"\n" +
-			"To begin working with environments, run the `env init` command:\n" +
-			"\n" +
-			"    env init\n" +
-			"\n" +
-			"This will prompt you to create a new environment to hold secrets and configuration.\n" +
-			"\n" +
-			"For more information, please visit the project page: https://www.pulumi.com/docs/esc",
+		Long: fmt.Sprintf("Manage environments\n"+
+			"\n"+
+			"An environment is a named collection of possibly-secret, possibly-dynamic data.\n"+
+			"Each environment has a definition and may be opened in order to access its contents.\n"+
+			"Opening an environment may involve generating new dynamic data.\n"+
+			"\n"+
+			"To begin working with environments, run the `%[1]s env init` command with a name:\n"+
+			"\n"+
+			"    %[1]s env init <org-name>/<project-name>/<environment-name>\n"+
+			"\n"+
+			"This will create a new, empty environment to hold secrets and configuration.\n"+
+			"\n"+
+			"For more information, please visit the project page: https://www.pulumi.com/docs/esc", esc.command),
 
 		Args: cobra.NoArgs,
 	}
@@ -213,7 +216,7 @@ func (cmd *envCommand) getNewEnvRef(
 ) (environmentRef, []string, error) {
 	if cmd.envNameFlag == "" {
 		if len(args) == 0 {
-			return environmentRef{}, nil, errors.New("no environment name specified")
+			return environmentRef{}, nil, errMissingEnvName
 		}
 		cmd.envNameFlag, args = args[0], args[1:]
 	}
@@ -273,7 +276,7 @@ func (cmd *envCommand) getExistingEnvRef(
 ) (environmentRef, []string, error) {
 	if cmd.envNameFlag == "" {
 		if len(args) == 0 {
-			return environmentRef{}, nil, errors.New("no environment name specified")
+			return environmentRef{}, nil, errMissingEnvName
 		}
 		cmd.envNameFlag, args = args[0], args[1:]
 	}

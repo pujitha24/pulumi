@@ -15,6 +15,7 @@
 package cli
 
 import (
+	"context"
 	"testing"
 
 	"github.com/pulumi/pulumi/pkg/v3/cmd/esc/cli/client"
@@ -88,4 +89,20 @@ func TestGetEnvRef(t *testing.T) {
 		assert.Equal(t, ref.version, "v1")
 		assert.Equal(t, isRelative, true)
 	})
+}
+
+func TestEnvHelpUsesCommandPrefix(t *testing.T) {
+	t.Parallel()
+
+	cmd := newEnvCmd(newESC(&Options{ParentPath: "pulumi"}))
+	assert.Contains(t, cmd.Long, "`pulumi env init`")
+	assert.Contains(t, cmd.Long, "    pulumi env init <org-name>/<project-name>/<environment-name>\n")
+}
+
+func TestGetNewEnvRefMissingName(t *testing.T) {
+	t.Parallel()
+
+	cmd := &envCommand{esc: &escCommand{}}
+	_, _, err := cmd.getNewEnvRef(context.Background(), nil)
+	assert.ErrorContains(t, err, "expected [<org-name>/][<project-name>/]<environment-name>")
 }
