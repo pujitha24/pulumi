@@ -1,0 +1,4 @@
+component: cli
+kind: fix
+body: Update help text links to point directly at current docs pages instead of relying on redirects
+time: 2026-10-09T00:00:00Z

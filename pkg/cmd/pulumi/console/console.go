@@ -107,7 +107,7 @@ func NewConsoleCmd(ws pkgWorkspace.Context) *cobra.Command {
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "This command is not available for your backend. "+
 				"To migrate to the Pulumi Cloud backend, "+
-				"please see https://www.pulumi.com/docs/intro/concepts/state/#pulumi-cloud-backend")
+				"please see https://www.pulumi.com/docs/iac/concepts/state-and-backends/#pulumi-cloud-backend")
 			return nil
 		},
 	}
