@@ -34,6 +34,19 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 )
 
+// validateImportedDeployment checks that the decoded input looks like a stack export, so that a malformed
+// file is reported as such rather than as a stack that is "too old" during deserialization.
+func validateImportedDeployment(deployment *apitype.UntypedDeployment, file string) error {
+	if deployment.Version == 0 || len(deployment.Deployment) == 0 {
+		name := file
+		if name == "" {
+			name = "input"
+		}
+		return fmt.Errorf("%s is not a valid stack export: missing \"version\" or \"deployment\" field", name)
+	}
+	return nil
+}
+
 func newStackImportCmd(ws pkgWorkspace.Context, lm cmdBackend.LoginManager, sp secrets.Provider) *cobra.Command {
 	var force bool
 	var file string
@@ -82,6 +95,9 @@ func newStackImportCmd(ws pkgWorkspace.Context, lm cmdBackend.LoginManager, sp s
 			// sent by the server that the client CLI does not recognize (enabling round-tripping).
 			var deployment apitype.UntypedDeployment
 			if err = json.NewDecoder(reader).Decode(&deployment); err != nil {
+				return err
+			}
+			if err := validateImportedDeployment(&deployment, file); err != nil {
 				return err
 			}
 

@@ -293,3 +293,32 @@ func TestStackImport_ServiceSecrets_DefaultSecretManagerMutatesProjectStack(t *t
 	assert.Contains(t, string(configBytes), "encryptionsalt: v1:dummy")
 	assert.Contains(t, string(configBytes), "proj:key: value")
 }
+
+func TestValidateImportedDeployment(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"unrelated object", `{"bogus": true}`, true},
+		{"missing deployment", `{"version": 3}`, true},
+		{"missing version", `{"deployment": {}}`, true},
+		{"valid", `{"version": 3, "deployment": {}}`, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var d apitype.UntypedDeployment
+			require.NoError(t, json.Unmarshal([]byte(tt.input), &d))
+			err := validateImportedDeployment(&d, "bad.json")
+			if tt.wantErr {
+				require.ErrorContains(t, err, "bad.json is not a valid stack export")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

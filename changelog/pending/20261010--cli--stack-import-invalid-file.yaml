@@ -1,0 +1,3 @@
+component: cli
+kind: fix
+body: Report a clear error when `pulumi stack import` is given a file that is not a stack export, instead of claiming the stack is too old
