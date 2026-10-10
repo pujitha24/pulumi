@@ -49,8 +49,8 @@ func newStateProtectCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "protect",
-		Short: "protect resource in a stack's state",
-		Long: `Protect resource in a stack's state
+		Short: "Protect resources in a stack's state",
+		Long: `Protect resources in a stack's state
 
 This command sets the 'protect' bit on one or more resources, preventing those resources from being deleted.
 

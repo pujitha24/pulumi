@@ -1,0 +1,4 @@
+component: cli
+kind: fix
+body: Fix command references and wording in the help text of `pulumi stack init`, `stack rm`, `stack tag` and `state protect`
+time: 2026-10-09T00:00:00Z
