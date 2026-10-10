@@ -1,0 +1,4 @@
+component: sdk/python
+kind: bug
+body: Fix the program hanging and hiding the error when it fails with an unresolved `deferred_output`
+time: 2026-10-10T00:00:00Z

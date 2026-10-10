@@ -143,9 +143,11 @@ async def run_pulumi_func(
     except BaseException as e:  # noqa: BLE001 re-raised after runtime cleanup
         ex = e
 
-    # Wait for RPCs to complete, then signal and wait for shutdown.
+    # Wait for RPCs to complete, then signal and wait for shutdown. If the program already failed we
+    # don't wait on outstanding outputs: some (e.g. a `deferred_output`) may never resolve now, and
+    # waiting would hang and hide the original error.
     try:
-        await wait_for_rpcs()
+        await wait_for_rpcs(await_all_outstanding_tasks=ex is None)
         # If func succeeded, let the monitor decide when we should shutdown.
         if ex is None:
             await _wait_for_shutdown()

@@ -323,3 +323,15 @@ async def test_run_pulumi_func_shuts_down_callbacks_after_cancellation(monkeypat
         await stack.run_pulumi_func(program)
 
     assert cleaned_up
+
+
+@pytest.mark.asyncio
+async def test_run_pulumi_func_does_not_hang_on_unresolved_deferred_output():
+    # The program fails before it can resolve the deferred output. The original error must
+    # surface rather than the runtime waiting forever on the unresolved output.
+    async def program():
+        pulumi.deferred_output()
+        raise Exception("program failed")
+
+    with pytest.raises(Exception, match="program failed"):
+        await asyncio.wait_for(stack.run_in_stack(program), timeout=10)
