@@ -1,0 +1,4 @@
+component: cli
+kind: fix
+body: Show the searched directory in the "no Pulumi.yaml project file found" error for commands such as `pulumi preview` and `pulumi install`
+time: 2026-10-10T00:00:00Z

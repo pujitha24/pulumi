@@ -101,6 +101,11 @@ var (
 // DetectProjectPathFrom locates the closest project from the given path, searching "upwards" in the directory
 // hierarchy.  If no project is found, ErrProjectNotFound is returned.
 func DetectProjectPathFrom(dir string) (string, error) {
+	// Callers may pass "" to mean the current directory. Resolve it so that errors name the real path.
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+
 	var path string
 	_, err := fsutil.WalkUpDirs(dir, func(dir string) bool {
 		var ok bool

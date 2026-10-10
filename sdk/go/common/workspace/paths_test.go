@@ -173,6 +173,16 @@ func TestDetectProjectUnreadableParent(t *testing.T) {
 	assert.ErrorIs(t, err, ErrProjectNotFound)
 }
 
+//nolint:paralleltest // This test changes the current working directory
+func TestDetectProjectPathFromEmptyDirNamesCwd(t *testing.T) {
+	tmpDir := mkTempDir(t)
+	t.Chdir(tmpDir)
+
+	_, err := DetectProjectPathFrom("")
+	require.ErrorIs(t, err, ErrProjectNotFound)
+	assert.ErrorContains(t, err, "searching upwards from "+tmpDir+")")
+}
+
 func TestDetectPolicyPackPathAt(t *testing.T) {
 	t.Parallel()
 	tmpDir := mkTempDir(t)
