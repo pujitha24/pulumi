@@ -86,9 +86,22 @@ func TestDriftStatus_TextOutput_NoDrift(t *testing.T) {
 	require.NoError(t, err)
 
 	out := buf.String()
-	assert.Contains(t, out, "Drift detected:    no")
+	assert.Contains(t, out, "Drift detected:    unknown (no drift detection runs)")
+	assert.NotContains(t, out, "Drift detected:    no")
 	assert.NotContains(t, out, "Latest drift run:")
 	assert.Contains(t, out, "Run in progress:   no")
+}
+
+func TestDriftStatus_TextOutput_NoDriftAfterRun(t *testing.T) {
+	t.Parallel()
+
+	c := &mockDriftStatusClient{status: apitype.StackDriftStatus{
+		LatestDriftRun: "run-abc-123",
+	}}
+	dscmd, buf := newTestDriftStatusCmd()
+	require.NoError(t, dscmd.run(t.Context(), stubDriftStatusFactory(c)))
+
+	assert.Contains(t, buf.String(), "Drift detected:    no\n")
 }
 
 func TestDriftStatus_TextOutput_RunInProgress(t *testing.T) {

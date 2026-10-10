@@ -154,8 +154,12 @@ func (c *driftStatusCmd) renderJSON(status apitype.StackDriftStatus) error {
 
 func (c *driftStatusCmd) renderText(status apitype.StackDriftStatus) error {
 	driftDetected := "no"
-	if status.DriftDetected {
+	switch {
+	case status.DriftDetected:
 		driftDetected = "yes"
+	case status.LatestDriftRun == "":
+		// Without a run nothing was checked, so "no" would wrongly read as "checked and clean".
+		driftDetected = "unknown (no drift detection runs). Run 'pulumi deployment run detect-drift' to check"
 	}
 	runInProgress := "no"
 	if status.RunInProgress {
